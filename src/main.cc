@@ -347,6 +347,7 @@ struct options {
 	string path;
 	string jid;
 	string password;
+	string talk_server;
 	string sockpath;
 	vector<string> recipients;
 
@@ -366,10 +367,11 @@ class parrot : public MessageHandler {
 	};
 
 public:
-	parrot(const string &Jid, const string &Pwd) {
+	parrot(const string &Jid, const string &Pwd, const string &Server) {
 		JID jid(Jid);
 		j.reset(new Client(jid, Pwd));
 		j->registerMessageHandler(this);
+		j->setServer(Server);
 		fmt::pf("Connecting as %s %s\n", Jid.c_str(), Pwd.c_str());
 		if (!j->connect(false))
 			throw runtime_error("Connection failed");
@@ -414,6 +416,13 @@ public:
 	void run(int timeout) {
 		j->recv(timeout);
 	}
+
+	bool onTLSconnect(const gloox::CertInfo& cert)
+	{
+		fmt::pf("Accepting certificate\n");
+		return true;
+	}
+
 };
 
 class seqpacket {
@@ -511,7 +520,7 @@ public:
 
 void do_parrot(const options &o, const char *progname)
 {
-	parrot p(o.jid, o.password);
+	parrot p(o.jid, o.password, o.talk_server);
 	seqpacket sp(o.sockpath.c_str());
 	string message;
 
@@ -567,6 +576,11 @@ int main(int argc, const char * const * argv)
 		 	args.pop_keyword("-j", "--jid") &&
 			args.pop_string("jid", o.jid) &&
 			args.run("Set JID for logging in")
+		) ||
+		(
+		 	args.pop_keyword("-t", "--talk-server") &&
+			args.pop_string("server", o.talk_server) &&
+			args.run("Set XMPP talk server")
 		) ||
 		(
 		 	args.pop_keyword("-p", "--password") &&
