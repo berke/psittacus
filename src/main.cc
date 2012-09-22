@@ -30,6 +30,8 @@ static inline int unix_bind(int sockfd, const struct sockaddr *addr,
 #include <gloox/message.h>
 #include <gloox/messagehandler.h>
 #include <gloox/messagesession.h>
+#include <gloox/rosterlistener.h>
+#include <gloox/rostermanager.h>
 
 using namespace std;
 
@@ -359,7 +361,7 @@ struct options {
 
 using namespace gloox;
 
-class parrot : public MessageHandler {
+class parrot : public MessageHandler, public RosterListener {
 	auto_ptr<Client> j;
 	vector<MessageSession*> sessions;
 	struct session {
@@ -371,6 +373,7 @@ public:
 		JID jid(Jid);
 		j.reset(new Client(jid, Pwd));
 		j->registerMessageHandler(this);
+		j->rosterManager()->registerRosterListener(this);
 		if (Server.size() > 0) j->setServer(Server);
 		fmt::pf("Connecting as %s %s\n", Jid.c_str(), Pwd.c_str());
 		if (!j->connect(false))
@@ -423,6 +426,62 @@ public:
 		return true;
 	}
 
+	bool handleSubscriptionRequest(const JID &jid, const string &msg)
+	{
+		fmt::pf("Got autho req %s\n", msg.c_str());
+		return true;
+	}
+
+	bool handleUnsubscriptionRequest(const JID &jid, const string &msg)
+	{
+		fmt::pf("Got unautho req %s\n", msg.c_str());
+		return true;
+	}
+
+	void handleItemAdded(const JID &jid)
+	{
+	}
+
+	void handleItemSubscribed(const JID &jid)
+	{
+	}
+
+	void handleItemRemoved(const JID &jid)
+	{
+	}
+
+	void handleItemUpdated(const JID &jid)
+	{
+	}
+
+	void handleItemUnsubscribed(const JID &jid)
+	{
+	}
+
+	void handleRoster(const Roster &roster)
+	{
+	}
+
+	void handleRosterPresence(const RosterItem &item,
+			const string &resource,
+			Presence::PresenceType presence,
+			const string &msg)
+	{
+	}
+
+	void handleSelfPresence(const RosterItem &item, const string
+			&resource, Presence::PresenceType presence,
+			const string &msg)
+	{
+	}
+
+	void handleNonrosterPresence(const Presence &presence)
+	{
+	}
+
+	void handleRosterError(const IQ &iq)
+	{
+	}
 };
 
 class seqpacket {
