@@ -8,6 +8,7 @@
 #include <memory>
 #include <queue>
 #include <set>
+#include <sstream>
 
 #include <cstdio>
 #include <cstdlib>
@@ -365,13 +366,14 @@ using namespace gloox;
 class parrot : public MessageHandler, public RosterListener {
 	Client *j;
 	class session {
+		parrot *p;
 		Client *j;
 		JID jid;
 		MessageSession *ms;
 
 	public:
 		session(parrot *P, Client *J, const string &Target) :
-			j(J), jid(Target) {
+			p(P), j(J), jid(Target) {
 			fmt::pf("Registering new target %s\n", Target.c_str());
 
 			ms = new MessageSession(&*j, jid);
@@ -385,11 +387,46 @@ class parrot : public MessageHandler, public RosterListener {
 		void send(const string &msg) {
 			ms->send(msg);
 		}
+
+		string answer(const string &u) {
+			if (!u.compare("help")) return cmd_help();
+			if (!u.compare("history")) return cmd_history();
+			if (!u.compare("who")) return cmd_who();
+			return fmt::spf("Unknown command %s, try help.",
+					u.c_str());
+		}
+
+		string cmd_help() {
+			return	"Dear friend, the following commands are "
+				"available:\n"
+				"  help - Display this\n"
+				"  history - Display last messages\n"
+				"  who - Show who is online";
+		}
+
+		string cmd_history() {
+			stringstream u;
+			if (p->history.size() == 0) return "No messages yet.";
+			u << "Last messages:";
+			for (auto &it: p->history) u << "\n" << it;
+			return u.str();
+		}
+
+		string cmd_who() {
+			stringstream u;
+			u << "Users:";
+			for (auto &it: p->recipients) u << "\n  " << it.first;
+			return u.str();
+		}
 	};
 	map<string, session *> recipients;
+	deque<string> history;
+	const unsigned history_max_size;
 
 public:
-	parrot(const string &Jid, const string &Pwd, const string &Server) {
+	parrot(const string &Jid, const string &Pwd, const string &Server) :
+		history_max_size(5)
+	{
 		JID jid(Jid);
 		j = new Client(jid, Pwd);
 		j->registerMessageHandler(this);
@@ -407,17 +444,30 @@ public:
 	void handleMessage(const Message &stanza, MessageSession *sess)
 	{
 		const string &what = stanza.body();
-		fmt::pf("We've got a message here!: %s\n", what.c_str());
+		const string &from = stanza.from().bare();
+		fmt::pf("From %s: %s\n", from.c_str(),
+				what.c_str());
 
 		auto t = stanza.subtype();
 		if (t & Message::MessageType::Error) {
-			fmt::pf("Got error!\n");
+			fmt::pf("  Error\n");
 		} else if (t & Message::MessageType::Chat) {
-			Message answer(Message::MessageType::Chat, stanza.from(),
-				"Pong!");
+			string response;
+			auto r = recipients.find(from);
+
+			if (r == recipients.end()) {
+				fmt::pf("  Unregistered\n");
+				response = "Please friend me before talking.";
+			} else {
+				response = r->second->answer(what);
+			}
+			Message answer(
+					Message::MessageType::Chat,
+					stanza.from(),
+					response);
 			j->send(answer);
 		} else {
-			fmt::pf("Unhandled message type %d\n", t);
+			fmt::pf("  Unhandled message type %d\n", t);
 		}
 	}
 
@@ -430,7 +480,13 @@ public:
 		recipients.erase(target);
 	}
 
+	void add_to_history(const string &message) {
+		history.push_back(message);
+		if (history.size() == history_max_size) history.pop_front();
+	}
+
 	void broadcast(const string &message) {
+		add_to_history(message);
 		for (auto &it: recipients)
 			it.second->send(message);
 	}
@@ -620,7 +676,6 @@ void do_parrot(const options &o, const char *progname)
 		sp.process();
 		if (sp.pending(message))
 			p.broadcast(message);
-		usleep(10000);
 	}
 }
 
