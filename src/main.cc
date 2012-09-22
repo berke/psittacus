@@ -371,7 +371,7 @@ public:
 		JID jid(Jid);
 		j.reset(new Client(jid, Pwd));
 		j->registerMessageHandler(this);
-		j->setServer(Server);
+		if (Server.size() > 0) j->setServer(Server);
 		fmt::pf("Connecting as %s %s\n", Jid.c_str(), Pwd.c_str());
 		if (!j->connect(false))
 			throw runtime_error("Connection failed");
