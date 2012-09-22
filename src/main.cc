@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <memory>
 #include <queue>
+#include <set>
 
 #include <cstdio>
 #include <cstdlib>
@@ -362,16 +363,35 @@ struct options {
 using namespace gloox;
 
 class parrot : public MessageHandler, public RosterListener {
-	auto_ptr<Client> j;
-	vector<MessageSession*> sessions;
-	struct session {
-		MessageSession *msess;
+	Client *j;
+	class session {
+		Client *j;
+		JID jid;
+		MessageSession *ms;
+
+	public:
+		session(parrot *P, Client *J, const string &Target) :
+			j(J), jid(Target) {
+			fmt::pf("Registering new target %s\n", Target.c_str());
+
+			ms = new MessageSession(&*j, jid);
+			ms->registerMessageHandler(P);
+		}
+
+		virtual ~session() {
+			ms->removeMessageHandler();
+		}
+
+		void send(const string &msg) {
+			ms->send(msg);
+		}
 	};
+	map<string, session *> recipients;
 
 public:
 	parrot(const string &Jid, const string &Pwd, const string &Server) {
 		JID jid(Jid);
-		j.reset(new Client(jid, Pwd));
+		j = new Client(jid, Pwd);
 		j->registerMessageHandler(this);
 		j->rosterManager()->registerRosterListener(this);
 		if (Server.size() > 0) j->setServer(Server);
@@ -394,7 +414,7 @@ public:
 			fmt::pf("Got error!\n");
 		} else if (t & Message::MessageType::Chat) {
 			Message answer(Message::MessageType::Chat, stanza.from(),
-				"Sup bitch?");
+				"Pong!");
 			j->send(answer);
 		} else {
 			fmt::pf("Unhandled message type %d\n", t);
@@ -402,64 +422,69 @@ public:
 	}
 
 	void add_target(const string &target) {
-		fmt::pf("Registering new target %s\n", target.c_str());
+		if (recipients.find(target) != recipients.end()) return;
+		recipients[target] = new session(this, j, target);
+	}
 
-		JID jid(target);
-		auto_ptr<MessageSession> session(new MessageSession(&*j, jid));
-		session->registerMessageHandler(this);
-		sessions.push_back(session.get());
-		session.release();
+	void remove_target(const string &target) {
+		recipients.erase(target);
 	}
 
 	void broadcast(const string &message) {
-		for (auto &it: sessions)
-			it->send(message);
+		for (auto &it: recipients)
+			it.second->send(message);
 	}
 
 	void run(int timeout) {
 		j->recv(timeout);
 	}
 
-	bool onTLSconnect(const gloox::CertInfo& cert)
-	{
-		fmt::pf("Accepting certificate\n");
-		return true;
-	}
-
 	bool handleSubscriptionRequest(const JID &jid, const string &msg)
 	{
 		fmt::pf("Got autho req %s\n", msg.c_str());
+		add_target(jid.bare());
 		return true;
 	}
 
 	bool handleUnsubscriptionRequest(const JID &jid, const string &msg)
 	{
 		fmt::pf("Got unautho req %s\n", msg.c_str());
+		remove_target(jid.bare());
 		return true;
 	}
 
 	void handleItemAdded(const JID &jid)
 	{
+		fmt::pf("Item added\n");
 	}
 
 	void handleItemSubscribed(const JID &jid)
 	{
+		fmt::pf("Item subscribed\n");
 	}
 
 	void handleItemRemoved(const JID &jid)
 	{
+		fmt::pf("Item removed\n");
 	}
 
 	void handleItemUpdated(const JID &jid)
 	{
+		fmt::pf("Item updated\n");
 	}
 
 	void handleItemUnsubscribed(const JID &jid)
 	{
+		fmt::pf("Item unsubscribed\n");
 	}
 
 	void handleRoster(const Roster &roster)
 	{
+		fmt::pf("Roster\n");
+		for (auto &it: roster) {
+			fmt::pf("  %s\n", it.first.c_str());
+			add_target(it.first);
+		}
 	}
 
 	void handleRosterPresence(const RosterItem &item,
@@ -467,20 +492,24 @@ public:
 			Presence::PresenceType presence,
 			const string &msg)
 	{
+		fmt::pf("Roster presence\n");
 	}
 
 	void handleSelfPresence(const RosterItem &item, const string
 			&resource, Presence::PresenceType presence,
 			const string &msg)
 	{
+		fmt::pf("Roster self presence: msg=%s\n", msg.c_str());
 	}
 
 	void handleNonrosterPresence(const Presence &presence)
 	{
+		fmt::pf("Nonroster presence\n");
 	}
 
 	void handleRosterError(const IQ &iq)
 	{
+		fmt::pf("Roster error\n");
 	}
 };
 
