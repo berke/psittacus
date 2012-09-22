@@ -535,7 +535,7 @@ class parrot : public MessageHandler, public RosterListener {
 
 public:
 	parrot(const string &Jid, const string &Pwd, const string &Server) :
-		history_max_size(5)
+		history_max_size(25)
 	{
 		JID jid(Jid);
 		j = new Client(jid, Pwd);
