@@ -363,6 +363,96 @@ struct options {
 
 using namespace gloox;
 
+static vector<string> split_string(const string &u)
+{
+	string v;
+	vector<string> a;
+	unsigned i;
+	char c;
+	enum { white, word, quote, rest } q = white;
+
+	for (i = 0; i <= u.size(); i ++) {
+		c = i < u.size() ? u[i] : 0;
+		switch (q) {
+			case white:
+				switch (c) {
+					case 0:
+					case ' ':
+					case '\n':
+					case '\t':
+					case '\r':
+						break;
+					case '"':
+						q = quote;
+						break;
+					case ':':
+						q = rest;
+						break;
+					default:
+						q = word;
+						i --;
+						continue;
+				}
+				break;
+			case rest:
+				switch (c) {
+					case 0:
+						a.push_back(v);
+						v.clear();
+						q = white;
+						break;
+					default:
+						v += c;
+						break;
+				}
+				break;
+			case word:
+				switch (c) {
+					case 0:
+					case ' ':
+					case '\n':
+					case '\t':
+					case '\r':
+						a.push_back(v);
+						v.clear();
+						q = white;
+						break;
+					case ':':
+						a.push_back(v);
+						v.clear();
+						q = rest;
+						break;
+					case '"':
+						a.push_back(v);
+						v.clear();
+						q = quote;
+						break;
+					default:
+						v += c;
+						break;
+				}
+				break;
+			case quote:
+				switch (c) {
+					case 0:
+						throw runtime_error(
+							"Unterminated quote");
+					case '"':
+						a.push_back(v);
+						v.clear();
+						q = white;
+						break;
+					default:
+						v += c;
+						break;
+				}
+				break;
+		}
+	}
+
+	return a;
+}
+
 class parrot : public MessageHandler, public RosterListener {
 	Client *j;
 	class session {
@@ -389,11 +479,30 @@ class parrot : public MessageHandler, public RosterListener {
 		}
 
 		string answer(const string &u) {
-			if (!u.compare("help")) return cmd_help();
-			if (!u.compare("history")) return cmd_history();
-			if (!u.compare("who")) return cmd_who();
-			return fmt::spf("Unknown command %s, try help.",
-					u.c_str());
+			const vector<string> a = split_string(u);
+			if (a.size() == 0) {
+				return fmt::spf("Empty command, try help.",
+						u.c_str());
+			}
+
+			const string &w = a[0];
+			if (!w.compare("help")) return cmd_help();
+			if (!w.compare("history")) return cmd_history();
+			if (!w.compare("who")) return cmd_who();
+			if (!w.compare("say")) return cmd_say(a);
+			return fmt::spf("Unknown command '%s', try help.",
+					w.c_str());
+		}
+
+		string cmd_say(const vector<string> &args) {
+			if (args.size() != 2) return "Wrong number of args";
+
+			stringstream u;
+			u << "Message from " << jid.bare() << ":\n'"
+				<< args[1] << "'";
+			p->broadcast(u.str());
+
+			return "Message sent.";
 		}
 
 		string cmd_help() {
@@ -401,7 +510,8 @@ class parrot : public MessageHandler, public RosterListener {
 				"available:\n"
 				"  help - Display this\n"
 				"  history - Display last messages\n"
-				"  who - Show who is online";
+				"  who - Show who is online\n"
+				"  say [msg] - Broadcast a message";
 		}
 
 		string cmd_history() {
