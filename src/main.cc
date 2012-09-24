@@ -596,6 +596,7 @@ public:
 	}
 
 	void broadcast(const string &message) {
+		fmt::pf("Broadcasting: %s\n", message.c_str());
 		add_to_history(message);
 		for (auto &it: recipients)
 			it.second->send(message);
