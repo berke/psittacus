@@ -21,6 +21,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <netinet/in.h>
 
 static inline int unix_bind(int sockfd, const struct sockaddr *addr,
 		socklen_t addrlen)
@@ -353,11 +354,12 @@ struct options {
 	string password;
 	string talk_server;
 	string sockpath;
+	int port;
 	vector<string> recipients;
 
 	options() :
 		debug(false),
-		sockpath("parrot")
+		port(0)
 	{ }
 };
 
@@ -731,6 +733,19 @@ public:
 		rc = listen(sk, 16);
 	}
 
+	seqpacket(int port) {
+		unix_rc rc;
+		sk = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
+
+		struct sockaddr_in si;
+		si.sin_family = AF_INET;
+		si.sin_port = htons(port);
+		si.sin_addr.s_addr = INADDR_ANY;
+		rc = unix_bind(sk, reinterpret_cast<struct sockaddr *>(&si),
+				sizeof(si));
+		rc = listen(sk, 16);
+	}
+
 	virtual ~seqpacket() {
 	}
 
@@ -776,7 +791,14 @@ public:
 void do_parrot(const options &o, const char *progname)
 {
 	parrot p(o.jid, o.password, o.talk_server);
-	seqpacket sp(o.sockpath.c_str());
+	seqpacket *sp;
+	
+	if (o.sockpath.size()) {
+		sp = new seqpacket(o.sockpath.c_str());
+	} else if (o.port > 0) {
+		sp = new seqpacket(o.port);
+	} else throw runtime_error("Socket path or TCP port must be specified");
+
 	string message;
 
 	for (auto &it: o.recipients) p.add_target(it);
@@ -784,8 +806,8 @@ void do_parrot(const options &o, const char *progname)
 	unix_rc rc = fcntl(0, F_SETFL, O_NONBLOCK);
 	while (true) {
 		p.run(10000);
-		sp.process();
-		if (sp.pending(message))
+		sp->process();
+		if (sp->pending(message))
 			p.broadcast(message);
 	}
 }
@@ -849,7 +871,12 @@ int main(int argc, const char * const * argv)
 		(
 		 	args.pop_keyword("-s", "--sockpath") &&
 			args.pop_string("path", o.sockpath) &&
-			args.run("Set UNIX socket path")
+			args.run("Use a UNIX socket and set the path")
+		) ||
+		(
+		 	args.pop_keyword("--port") &&
+			args.pop_int(o.port) &&
+			args.run("Use a TCP port and set the port")
 		) ||
 		(
 			args.pop_keyword("--run") &&
