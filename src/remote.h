@@ -14,6 +14,7 @@ class client {
 	vector<char> buf;
 	notif &notify;
 	clit notif_clit;
+	struct eof : public exception { eof() { } virtual ~eof() throw () { } };
 
 public:
 	client(int Fd, notif &Notify) :
@@ -35,7 +36,45 @@ public:
 	}
 
 private:
-	bool receive(int count)
+	void push_uint32_t(uint32_t data)
+	{
+		buf.push_back((data >> 24) & 255);
+		buf.push_back((data >> 16) & 255);
+		buf.push_back((data >> 8) & 255);
+		buf.push_back(data & 255);
+	}
+
+	void push_string(const string &u)
+	{
+		int i = buf.size();
+		int m = u.length();
+
+		push_uint32_t(m);
+		buf.resize(i + m);
+		memcpy(&buf[i], u.c_str(), m);
+	}
+
+	void transmit(void)
+	{
+		int i = 0;
+
+		int count = buf.size();
+
+		while (i < count) {
+			ssize_t n = write(fd, &buf[i], count - i);
+			if (n == 0) throw eof();
+			if (n < 0) {
+				if (errno == EAGAIN || errno == EWOULDBLOCK ||
+						errno == EINTR)
+					continue;
+				throw runtime_error(fmt::spf("Transmit: %s",
+						strerror(errno)));
+			}
+			i += n;
+		}
+	}
+
+	void receive(int count)
 	{
 		int i = 0;
 
@@ -43,9 +82,7 @@ private:
 
 		while (i < count) {
 			ssize_t n = read(fd, &buf[i], count - i);
-			if (n == 0) {
-				return false;
-			}
+			if (n == 0) throw eof();
 			if (n < 0) {
 				if (errno == EAGAIN || errno == EWOULDBLOCK ||
 						errno == EINTR)
@@ -55,19 +92,26 @@ private:
 			}
 			i += n;
 		}
-		return true;
+	}
+
+	void loop() {
+		fmt::pf("Lay lay lom\n");
+		receive(4);
+		buf.clear();
+		push_string(
+			fmt::spf("Got %02x %02x %02x %02x\n",
+					buf[0], buf[1], buf[2], buf[3]));
+		transmit();
 	}
 
 	void run() {
-		while (true) {
-			fmt::pf("Lay lay lom\n");
-			if (!receive(8)) {
-				fmt::pf("EOF!\n");
-				notify.put(notif_clit);
-				return;
+		try {
+			while (true) {
+				loop();
 			}
-			fmt::pf("Got %02x %02x %02x %02x\n",
-					buf[0], buf[1], buf[2], buf[3]);
+		}
+		catch(...) {
+			notify.put(notif_clit);
 		}
 	}
 
