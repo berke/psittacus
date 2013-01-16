@@ -66,29 +66,28 @@ namespace time_utils {
 
 void do_parrot(const options &o, const char *progname)
 {
-	//parrot p(o.jid, o.password, o.talk_server);
-	//seqpacket *sp;
-	remote rm(5500);
+	parrot p(o.jid, o.password, o.talk_server);
+	seqpacket *sp;
+	remote rm(o.remote_control_port);
 	
-#if 0
 	if (o.sockpath.size()) {
 		sp = new seqpacket(o.sockpath.c_str());
 	} else if (o.port > 0) {
 		sp = new seqpacket(o.port);
 	} else throw runtime_error("Socket path or TCP port must be specified");
-#endif
 
 	string message;
 
-	//for (auto &it: o.recipients) p.add_target(it);
+	for (auto &it: o.recipients) p.add_target(it);
 
 	while (true) {
-		//p.run(10000);
-		//sp->process();
+		p.run(10000);
+		sp->process();
 		rm.process();
-		//if (sp->pending(message))
-		//	p.broadcast(message);
-		usleep(100000);
+		if (sp->pending(message))
+			p.broadcast(message);
+		if (rm.pending(message))
+			p.broadcast(message);
 	}
 }
 
@@ -157,6 +156,11 @@ int main(int argc, const char * const * argv)
 		 	args.pop_keyword("--port") &&
 			args.pop_int(o.port) &&
 			args.run("Use a TCP port and set the port")
+		) ||
+		(
+		 	args.pop_keyword("--remote-control-port") &&
+			args.pop_int(o.remote_control_port) &&
+			args.run("Set TCP remote control port")
 		) ||
 		(
 			args.pop_keyword("--run") &&
