@@ -60,11 +60,13 @@ namespace time_utils {
 #include "split_string.h"
 #include "parrot.h"
 #include "seqpacket.h"
+#include "remote.h"
 
 void do_parrot(const options &o, const char *progname)
 {
 	parrot p(o.jid, o.password, o.talk_server);
 	seqpacket *sp;
+	remote rm(5500);
 	
 	if (o.sockpath.size()) {
 		sp = new seqpacket(o.sockpath.c_str());
@@ -80,6 +82,7 @@ void do_parrot(const options &o, const char *progname)
 	while (true) {
 		p.run(10000);
 		sp->process();
+		rm.process();
 		if (sp->pending(message))
 			p.broadcast(message);
 	}
