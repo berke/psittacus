@@ -14,7 +14,14 @@ class client {
 	vector<char> buf;
 	notif &notify;
 	clit notif_clit;
-	struct eof : public exception { eof() { } virtual ~eof() throw () { } };
+	struct eof : public exception {
+		eof() { }
+		virtual ~eof() throw () { }
+		const char *what() const throw () {
+			return "EOF";
+		}
+	};
+	enum { receive_max = 131072, args_max = 32 };
 
 public:
 	client(int Fd, notif &Notify) :
@@ -44,23 +51,33 @@ private:
 		buf.push_back(data & 255);
 	}
 
+	uint32_t decode_uint32_t(const char *buf)
+	{
+		return
+			(((uint32_t) buf[0] & 255) << 24) |
+			(((uint32_t) buf[1] & 255) << 16) |
+			(((uint32_t) buf[2] & 255) << 8) |
+			((uint32_t) buf[3] & 255);
+	}
+
 	void push_string(const string &u)
 	{
-		int i = buf.size();
-		int m = u.length();
-
+		nat m = u.length();
 		push_uint32_t(m);
+		nat i = buf.size();
 		buf.resize(i + m);
 		memcpy(&buf[i], u.c_str(), m);
 	}
 
 	void transmit(void)
 	{
-		int i = 0;
+		nat i = 0;
 
-		int count = buf.size();
+		nat count = buf.size();
+		fmt::pf("Transmitting %u\n", count);
 
 		while (i < count) {
+			fmt::pf("Transmit %u %u\n", i, count);
 			ssize_t n = write(fd, &buf[i], count - i);
 			if (n == 0) throw eof();
 			if (n < 0) {
@@ -72,6 +89,7 @@ private:
 			}
 			i += n;
 		}
+		fmt::pf("Transmit done\n");
 	}
 
 	void receive(int count)
@@ -94,25 +112,86 @@ private:
 		}
 	}
 
-	void loop() {
-		fmt::pf("Lay lay lom\n");
+	uint32_t receive_uint32_t()
+	{
 		receive(4);
+		return decode_uint32_t(&buf[0]);
+	}
+
+	string receive_string()
+	{
+		nat m = receive_uint32_t();
+		if (m > receive_max)
+			throw runtime_error(
+				fmt::spf("Packet size exceeded: %u > %u",
+					m,
+					receive_max));
+		receive(m);
+		string u(&buf[0], m);
+		fmt::spf("Str '%s'\n", u.c_str());
+		return u;
+	}
+
+	vector<string> command(vector<string> &args)
+	{
+		vector<string> result;
+
+		if (args[0] == "hello") {
+			result.resize(2);
+			result[0] = "hi";
+			result[1] = "markus";
+		} else {
+			fmt::pf("Unknown command '%s'\n", args[0].c_str());
+			result.resize(2);
+			result[0] = "error";
+			result[1] = "unknown-command";
+		}
+
+		return result;
+	}
+
+	void loop() {
+		vector<string> args;
+
+		uint32_t m = receive_uint32_t();
+		if (!m || m > args_max)
+			throw runtime_error("Argument count invalid");
+		args.resize(m);
+
+		for (nat i = 0; i < m; i ++) args[i] = receive_string();
+
+		vector<string> response = command(args);
+
 		buf.clear();
-		push_string(
-			fmt::spf("Got %02x %02x %02x %02x\n",
-					buf[0], buf[1], buf[2], buf[3]));
+		nat n = response.size();
+		push_uint32_t(n);
+		fmt::pf("Response: %u {", n);
+
+		for (nat j = 0; j < n; j ++) {
+			fmt::pf(" '%s'", response[j].c_str());
+			push_string(response[j]);
+		}
+		fmt::pf(" }\n");
 		transmit();
 	}
 
 	void run() {
 		try {
+			int flag;
+
+			unix_rc rc = flag = fcntl(fd, F_GETFL, 0);
+			rc = fcntl(fd, F_SETFL, flag & ~O_NONBLOCK);
+
 			while (true) {
 				loop();
 			}
 		}
-		catch(...) {
-			notify.put(notif_clit);
+		catch(exception& e) {
+			fmt::pf("Got exception: %s\n", e.what());
 		}
+		catch(...) {
+		}
+		notify.put(notif_clit);
 	}
 
 	static void *start(void *arg) {
@@ -144,6 +223,8 @@ public:
 	remote(int port) {
 		unix_rc rc;
 		sk = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
+		int opt = 1;
+		rc = setsockopt(sk, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
 		struct sockaddr_in si;
 		si.sin_family = AF_INET;

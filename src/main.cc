@@ -39,6 +39,8 @@ static inline int unix_bind(int sockfd, const struct sockaddr *addr,
 
 using namespace std;
 
+typedef unsigned nat;
+
 #include "unix_rc.h"
 #include "non_copyable.h"
 #include "unix_fd.h"
@@ -64,27 +66,29 @@ namespace time_utils {
 
 void do_parrot(const options &o, const char *progname)
 {
-	parrot p(o.jid, o.password, o.talk_server);
-	seqpacket *sp;
+	//parrot p(o.jid, o.password, o.talk_server);
+	//seqpacket *sp;
 	remote rm(5500);
 	
+#if 0
 	if (o.sockpath.size()) {
 		sp = new seqpacket(o.sockpath.c_str());
 	} else if (o.port > 0) {
 		sp = new seqpacket(o.port);
 	} else throw runtime_error("Socket path or TCP port must be specified");
+#endif
 
 	string message;
 
-	for (auto &it: o.recipients) p.add_target(it);
+	//for (auto &it: o.recipients) p.add_target(it);
 
-	unix_rc rc = fcntl(0, F_SETFL, O_NONBLOCK);
 	while (true) {
-		p.run(10000);
-		sp->process();
+		//p.run(10000);
+		//sp->process();
 		rm.process();
-		if (sp->pending(message))
-			p.broadcast(message);
+		//if (sp->pending(message))
+		//	p.broadcast(message);
+		usleep(100000);
 	}
 }
 
