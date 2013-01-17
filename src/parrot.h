@@ -164,7 +164,7 @@ public:
 			return;
 		t_last_ping = t;
 		fmt::pf("Pinging...\n");
-		//j->setPresence(Presence::Available, 0, status_string());
+		j->setPresence(Presence::Available, 0, status_string());
 	}
 
 	string status_string()
