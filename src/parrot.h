@@ -4,6 +4,7 @@ class parrot : public MessageHandler, public RosterListener,
 	double ping_interval;
 	double t_start, t_last_ping;
 	bool connected;
+	notification<letter> received;
 
 	class session {
 		parrot *p;
@@ -29,7 +30,8 @@ class parrot : public MessageHandler, public RosterListener,
 		}
 
 		string answer(const string &u) {
-			const vector<string> a = split_string(u);
+			const vector<string> a =
+				split_string(u.substr(1, u.size() - 1));
 			if (a.size() == 0) {
 				return fmt::spf("Empty command, try help.",
 						u.c_str());
@@ -124,7 +126,13 @@ public:
 				fmt::pf("  Unregistered\n");
 				response = "Please friend me before talking.";
 			} else {
-				response = r->second->answer(what);
+				if (what.size() > 0 && what[0] == '\\')
+					response = r->second->answer(what);
+				else {
+					// Pass it
+					letter let(from, what);
+					received.put(let);
+				}
 			}
 			Message answer(
 					Message::MessageType::Chat,
@@ -148,6 +156,10 @@ public:
 	void add_to_history(const string &message) {
 		history.push_back(message);
 		if (history.size() == history_max_size) history.pop_front();
+	}
+
+	bool pending(letter &let) {
+		return received.get(let);
 	}
 
 	void broadcast(const letter &let) {

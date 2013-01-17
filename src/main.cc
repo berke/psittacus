@@ -15,6 +15,7 @@
 #include <cstdarg>
 #include <cstring>
 #include <cinttypes>
+#include <csignal>
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -62,6 +63,7 @@ namespace time_utils {
 
 #include "split_string.h"
 #include "letter.h"
+#include "notification.h"
 #include "parrot.h"
 #include "seqpacket.h"
 #include "remote.h"
@@ -102,9 +104,16 @@ public:
 	}
 };
 
+void sigusr1_handler(int s)
+{
+	fmt::pf("SIGUSR1 received\n");
+}
+
 void do_parrot(const options &o, const char *progname)
 {
 	srandom(getpid());
+	signal(SIGUSR1, sigusr1_handler);
+
 	shared_ptr<seqpacket> sp;
 	shared_ptr<remote> rm;
 	time_valve tvalve(5, 30);
@@ -135,6 +144,9 @@ void do_parrot(const options &o, const char *progname)
 
 			while (true) {
 				p.run(10000);
+
+				if (p.pending(let))
+					rm->receive(let);
 
 #if 0
 				sp->process();

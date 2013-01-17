@@ -1,7 +1,5 @@
 // Remote control
 
-#include "notification.h"
-
 class client;
 
 typedef list<shared_ptr<client>>::iterator clit;
@@ -83,5 +81,10 @@ public:
 
 	bool pending(letter &let) {
 		return to_broadcast.get(let);
+	}
+
+	void receive(letter &let) {
+		for (auto &it: clients)
+			it->receive(let);
 	}
 };
