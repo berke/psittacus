@@ -31,6 +31,7 @@ static inline int unix_bind(int sockfd, const struct sockaddr *addr,
 }
 
 #include <gloox/client.h>
+#include <gloox/connectionlistener.h>
 #include <gloox/message.h>
 #include <gloox/messagehandler.h>
 #include <gloox/messagesession.h>

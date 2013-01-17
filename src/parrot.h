@@ -1,4 +1,5 @@
-class parrot : public MessageHandler, public RosterListener {
+class parrot : public MessageHandler, public RosterListener,
+	public ConnectionListener {
 	Client *j;
 	double ping_interval;
 	double t_start, t_last_ping;
@@ -91,12 +92,12 @@ public:
 		JID jid(Jid);
 		j = new Client(jid, Pwd);
 		j->registerMessageHandler(this);
+		j->registerConnectionListener(this);
 		j->rosterManager()->registerRosterListener(this);
 		if (Server.size() > 0) j->setServer(Server);
 		fmt::pf("Connecting as %s %s\n", Jid.c_str(), Pwd.c_str());
 		if (!j->connect(false))
 			throw runtime_error("Connection failed");
-		fmt::pf("Connected\n");
 	}
 
 	virtual ~parrot() {
@@ -175,6 +176,141 @@ public:
 	void run(int timeout) {
 		ping();
 		j->recv(timeout);
+		/*ConnectionError error =
+		if (error != ConnNoError) {
+			throw runtime_error(string_of_connection_error(error));
+		}*/
+	}
+
+	void onConnect() {
+		fmt::pf("Connected...\n");
+	}
+
+	string string_of_stream_error(StreamError error) {
+		string msg;
+
+		switch (error) {
+			case StreamErrorBadFormat:
+				msg = "StreamErrorBadFormat"; break;
+			case StreamErrorBadNamespacePrefix:
+				msg = "StreamErrorBadNamespacePrefix"; break;
+			case StreamErrorConflict:
+				msg = "StreamErrorConflict"; break;
+			case StreamErrorConnectionTimeout:
+				msg = "StreamErrorConnectionTimeout"; break;
+			case StreamErrorHostGone:
+				msg = "StreamErrorHostGone"; break;
+			case StreamErrorHostUnknown:
+				msg = "StreamErrorHostUnknown"; break;
+			case StreamErrorImproperAddressing:
+				msg = "StreamErrorImproperAddressing"; break;
+			case StreamErrorInternalServerError:
+				msg = "StreamErrorInternalServerError"; break;
+			case StreamErrorInvalidFrom:
+				msg = "StreamErrorInvalidFrom"; break;
+			case StreamErrorInvalidId:
+				msg = "StreamErrorInvalidId"; break;
+			case StreamErrorInvalidNamespace:
+				msg = "StreamErrorInvalidNamespace"; break;
+			case StreamErrorInvalidXml:
+				msg = "StreamErrorInvalidXml"; break;
+			case StreamErrorNotAuthorized:
+				msg = "StreamErrorNotAuthorized"; break;
+			case StreamErrorPolicyViolation:
+				msg = "StreamErrorPolicyViolation"; break;
+			case StreamErrorRemoteConnectionFailed:
+				msg = "StreamErrorRemoteConnectionFailed"; break;
+			case StreamErrorResourceConstraint:
+				msg = "StreamErrorResourceConstraint"; break;
+			case StreamErrorRestrictedXml:
+				msg = "StreamErrorRestrictedXml"; break;
+			case StreamErrorSeeOtherHost:
+				msg = "StreamErrorSeeOtherHost"; break;
+			case StreamErrorSystemShutdown:
+				msg = "StreamErrorSystemShutdown"; break;
+			case StreamErrorUndefinedCondition:
+				msg = "StreamErrorUndefinedCondition"; break;
+			case StreamErrorUnsupportedEncoding:
+				msg = "StreamErrorUnsupportedEncoding"; break;
+			case StreamErrorUnsupportedStanzaType:
+				msg = "StreamErrorUnsupportedStanzaType"; break;
+			case StreamErrorUnsupportedVersion:
+				msg = "StreamErrorUnsupportedVersion"; break;
+			case StreamErrorXmlNotWellFormed:
+				msg = "StreamErrorXmlNotWellFormed"; break;
+			case StreamErrorUndefined:
+				msg = "StreamErrorUndefined"; break;
+		}
+		return msg;
+	}
+
+	string string_of_connection_error(ConnectionError error)
+	{
+		string msg;
+		switch (error) {
+			case ConnNoError:
+				msg = "ConnNoError"; break;
+			case ConnNotConnected:
+				msg = "ConnNotConnected"; break;
+			case ConnStreamError:
+				msg = "Connection stream error: " +
+					string_of_stream_error(
+						j->streamError());
+				break;
+			case ConnStreamVersionError:
+				msg = "ConnStreamVersionError"; break;
+			case ConnStreamClosed:
+				msg = "ConnStreamClosed"; break;
+			case ConnProxyAuthRequired:
+				msg = "ConnProxyAuthRequired"; break;
+			case ConnProxyAuthFailed:
+				msg = "ConnProxyAuthFailed"; break;
+			case ConnProxyNoSupportedAuth:
+				msg = "ConnProxyNoSupportedAuth"; break;
+			case ConnIoError:
+				msg = "ConnIoError"; break;
+			case ConnParseError:
+				msg = "ConnParseError"; break;
+			case ConnConnectionRefused:
+				msg = "ConnConnectionRefused"; break;
+			case ConnDnsError:
+				msg = "ConnDnsError"; break;
+			case ConnOutOfMemory:
+				msg = "ConnOutOfMemory"; break;
+			case ConnNoSupportedAuth:
+				msg = "ConnNoSupportedAuth"; break;
+			case ConnTlsFailed:
+				msg = "ConnTlsFailed"; break;
+			case ConnTlsNotAvailable:
+				msg = "ConnTlsNotAvailable"; break;
+			case ConnCompressionFailed:
+				msg = "ConnCompressionFailed"; break;
+			case ConnAuthenticationFailed:
+				msg = "ConnAuthenticationFailed"; break;
+			case ConnUserDisconnected:
+				msg = "ConnUserDisconnected"; break;
+			default:
+				msg = "Unspecified error";
+				break;
+		}
+
+		return msg;
+	}
+
+
+	void onDisconnect(ConnectionError error) {
+		fmt::pf("Disconnected : %s...\n",
+			string_of_connection_error(error).c_str());
+		throw runtime_error("Connection error");
+	}
+
+	void onStreamEvent(StreamEvent event) {
+		fmt::pf("Stream event...\n");
+	}
+
+	bool onTLSConnect(const CertInfo &cert) {
+		fmt::pf("TLS connect...\n");
+		return true;
 	}
 
 	bool handleSubscriptionRequest(const JID &jid, const string &msg)
