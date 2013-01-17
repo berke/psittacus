@@ -3,6 +3,7 @@ class parrot : public MessageHandler, public RosterListener,
 	Client *j;
 	double ping_interval;
 	double t_start, t_last_ping;
+	bool connected;
 
 	class session {
 		parrot *p;
@@ -155,12 +156,13 @@ public:
 	}
 
 	void ping() {
+		if (!connected) return;
 		double t = time_utils::now();
 		if (t_last_ping >= 0 && t_last_ping + ping_interval > t)
 			return;
 		t_last_ping = t;
 		fmt::pf("Pinging...\n");
-		j->setPresence(Presence::Available, 0, status_string());
+		//j->setPresence(Presence::Available, 0, status_string());
 	}
 
 	string status_string()
@@ -174,12 +176,8 @@ public:
 	}
 
 	void run(int timeout) {
-		ping();
 		j->recv(timeout);
-		/*ConnectionError error =
-		if (error != ConnNoError) {
-			throw runtime_error(string_of_connection_error(error));
-		}*/
+		ping();
 	}
 
 	void onConnect() {
@@ -299,6 +297,7 @@ public:
 
 
 	void onDisconnect(ConnectionError error) {
+		connected = false;
 		fmt::pf("Disconnected : %s...\n",
 			string_of_connection_error(error).c_str());
 		throw runtime_error("Connection error");
@@ -355,6 +354,7 @@ public:
 	void handleRoster(const Roster &roster)
 	{
 		fmt::pf("Roster\n");
+		connected = true;
 		for (auto &it: roster) {
 			fmt::pf("  %s\n", it.first.c_str());
 			add_target(it.first);
