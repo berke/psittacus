@@ -104,15 +104,24 @@ public:
 void do_parrot(const options &o, const char *progname)
 {
 	srandom(getpid());
-	seqpacket *sp;
-	remote rm(o.remote_control_port);
+	shared_ptr<seqpacket> sp;
+	shared_ptr<remote> rm;
 	time_valve tvalve(5, 30);
 	
 	if (o.sockpath.size()) {
-		sp = new seqpacket(o.sockpath.c_str());
+		sp.reset(new seqpacket(o.sockpath.c_str()));
 	} else if (o.port > 0) {
-		sp = new seqpacket(o.port);
+		sp.reset(new seqpacket(o.port));
 	} else throw runtime_error("Socket path or TCP port must be specified");
+
+	(o.remote_control_port);
+
+	if (o.remote_control_path.size()) {
+		rm.reset(new remote(o.remote_control_path.c_str()));
+	} else if (o.port > 0) {
+		rm.reset(new remote(o.remote_control_port));
+	} else throw runtime_error("Remote control socket path or TCP port "
+			"must be specified");
 
 	while (true) {
 		try {
@@ -125,11 +134,13 @@ void do_parrot(const options &o, const char *progname)
 
 			while (true) {
 				p.run(10000);
+
 				sp->process();
-				rm.process();
 				if (sp->pending(message))
 					p.broadcast(message);
-				if (rm.pending(message))
+
+				rm->process();
+				if (rm->pending(message))
 					p.broadcast(message);
 			}
 		}
@@ -206,9 +217,14 @@ int main(int argc, const char * const * argv)
 			args.run("Use a TCP port and set the port")
 		) ||
 		(
-		 	args.pop_keyword("--remote-control-port") &&
+		 	args.pop_keyword("--rc-path") &&
+			args.pop_string("path", o.remote_control_path) &&
+			args.run("Use a UNIX socket for RC and set the path")
+		) ||
+		(
+		 	args.pop_keyword("--rc-port") &&
 			args.pop_int(o.remote_control_port) &&
-			args.run("Set TCP remote control port")
+			args.run("Use a TCP socket for RC and set port")
 		) ||
 		(
 			args.pop_keyword("--run") &&
