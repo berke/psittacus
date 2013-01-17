@@ -50,7 +50,7 @@ class parrot : public MessageHandler, public RosterListener,
 			stringstream u;
 			u << "Message from " << jid.bare() << ":\n'"
 				<< args[1] << "'";
-			p->broadcast(u.str());
+			p->broadcast(letter("", u.str()));
 
 			return "Message sent.";
 		}
@@ -150,11 +150,22 @@ public:
 		if (history.size() == history_max_size) history.pop_front();
 	}
 
-	void broadcast(const string &message) {
-		fmt::pf("Broadcasting: %s\n", message.c_str());
-		add_to_history(message);
-		for (auto &it: recipients)
-			it.second->send(message);
+	void broadcast(const letter &let) {
+		if (let.is_broadcast()) {
+			fmt::pf("Sending to [%s]: [%s]\n",
+				let.to.c_str(), let.body.c_str());
+			auto it = recipients.find(let.to);
+			if (it == recipients.end()) {
+				// That didn't work out
+				fmt::pf("Error: can't find recipient %s\n",
+						let.to.c_str());
+			} else it->second->send(let.body);
+		} else {
+			fmt::pf("Broadcasting: [%s]\n", let.body.c_str());
+			add_to_history(let.body);
+			for (auto &it: recipients)
+				it.second->send(let.body);
+		}
 	}
 
 	void ping() {

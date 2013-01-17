@@ -4,7 +4,7 @@ class client {
 	string message;
 	vector<char> buf;
 	notif &notify;
-	notification<string> &to_broadcast;
+	notification<letter> &to_broadcast;
 	clit notif_clit;
 	struct eof : public exception {
 		eof() { }
@@ -16,7 +16,7 @@ class client {
 	enum { receive_max = 131072, args_max = 32 };
 
 public:
-	client(int Fd, notif &Notify, notification<string> &To_broadcast) :
+	client(int Fd, notif &Notify, notification<letter> &To_broadcast) :
 		fd(Fd),
 		buf(512),
 		notify(Notify),
@@ -134,8 +134,8 @@ private:
 			result.resize(2);
 			result[0] = "hi";
 			result[1] = "markus";
-		} else if (args[0] == "say" && n == 2) {
-			to_broadcast.put(args[1]);
+		} else if (args[0] == "say" && n == 3) {
+			to_broadcast.put(letter(args[1], args[2]));
 			result.resize(1);
 			result[0] = "ok";
 		} else {

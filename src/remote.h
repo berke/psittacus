@@ -13,7 +13,7 @@ class remote {
 	unix_fd sk;
 	list<shared_ptr<client>> clients;
 	notif finished_clients;
-	notification<string> to_broadcast;
+	notification<letter> to_broadcast;
 
 public:
 	remote(const char *path) {
@@ -81,7 +81,7 @@ public:
 		cl->set_clit(clients.begin());
 	}
 
-	bool pending(string &message) {
-		return to_broadcast.get(message);
+	bool pending(letter &let) {
+		return to_broadcast.get(let);
 	}
 };

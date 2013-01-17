@@ -61,6 +61,7 @@ namespace time_utils {
 };
 
 #include "split_string.h"
+#include "letter.h"
 #include "parrot.h"
 #include "seqpacket.h"
 #include "remote.h"
@@ -129,19 +130,21 @@ void do_parrot(const options &o, const char *progname)
 			tvalve.traverse();
 			fmt::pf("Starting\n");
 			parrot p(o.jid, o.password, o.talk_server);
-			string message;
 			for (auto &it: o.recipients) p.add_target(it);
+			letter let;
 
 			while (true) {
 				p.run(10000);
 
+#if 0
 				sp->process();
 				if (sp->pending(message))
 					p.broadcast(message);
+#endif
 
 				rm->process();
-				if (rm->pending(message))
-					p.broadcast(message);
+				if (rm->pending(let))
+					p.broadcast(let);
 			}
 		}
 		catch (parrot::disconnected &d) {
