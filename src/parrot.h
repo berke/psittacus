@@ -84,6 +84,8 @@ class parrot : public MessageHandler, public RosterListener,
 	const unsigned history_max_size;
 
 public:
+	struct disconnected { };
+
 	parrot(const string &Jid, const string &Pwd, const string &Server) :
 		ping_interval(20),
 		t_start(time_utils::now()),
@@ -98,7 +100,7 @@ public:
 		if (Server.size() > 0) j->setServer(Server);
 		fmt::pf("Connecting as %s %s\n", Jid.c_str(), Pwd.c_str());
 		if (!j->connect(false))
-			throw runtime_error("Connection failed");
+			throw disconnected();
 	}
 
 	virtual ~parrot() {
@@ -300,7 +302,7 @@ public:
 		connected = false;
 		fmt::pf("Disconnected : %s...\n",
 			string_of_connection_error(error).c_str());
-		throw runtime_error("Connection error");
+		throw disconnected();
 	}
 
 	void onStreamEvent(StreamEvent event) {

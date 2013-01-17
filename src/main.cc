@@ -65,11 +65,48 @@ namespace time_utils {
 #include "seqpacket.h"
 #include "remote.h"
 
+class time_valve {
+	double t_last, min_interval_s, max_interval_s, interval;
+
+public:
+	time_valve(double Min_interval_s=5, double Max_interval_s=120) :
+		t_last(-1),
+		min_interval_s(Min_interval_s),
+		max_interval_s(Max_interval_s),
+		interval(min_interval_s)
+	{
+	}
+	
+	virtual ~time_valve() { }
+
+	void traverse() {
+		double t_now = time_utils::now();
+		unix_rc rc;
+		double dt;
+
+		if (t_last < 0) goto accept;
+
+		interval = min(max_interval_s, 2 * interval);
+		dt = t_last + interval - t_now;
+		if (dt <= 0) goto accept;
+
+		// Handle EINTR
+		fmt::pf("Sleeping %f s\n", dt);
+		rc = usleep(dt * 1e6);
+		t_now = time_utils::now();
+
+	accept:
+		t_last = t_now;
+		return;
+	}
+};
+
 void do_parrot(const options &o, const char *progname)
 {
-	parrot p(o.jid, o.password, o.talk_server);
+	srandom(getpid());
 	seqpacket *sp;
 	remote rm(o.remote_control_port);
+	time_valve tvalve(5, 30);
 	
 	if (o.sockpath.size()) {
 		sp = new seqpacket(o.sockpath.c_str());
@@ -77,18 +114,28 @@ void do_parrot(const options &o, const char *progname)
 		sp = new seqpacket(o.port);
 	} else throw runtime_error("Socket path or TCP port must be specified");
 
-	string message;
-
-	for (auto &it: o.recipients) p.add_target(it);
-
 	while (true) {
-		p.run(10000);
-		sp->process();
-		rm.process();
-		if (sp->pending(message))
-			p.broadcast(message);
-		if (rm.pending(message))
-			p.broadcast(message);
+		try {
+			fmt::pf("Regulating...\n");
+			tvalve.traverse();
+			fmt::pf("Starting\n");
+			parrot p(o.jid, o.password, o.talk_server);
+			string message;
+			for (auto &it: o.recipients) p.add_target(it);
+
+			while (true) {
+				p.run(10000);
+				sp->process();
+				rm.process();
+				if (sp->pending(message))
+					p.broadcast(message);
+				if (rm.pending(message))
+					p.broadcast(message);
+			}
+		}
+		catch (parrot::disconnected &d) {
+			fmt::pf("Disconnected, waiting...\n");
+		}
 	}
 }
 
