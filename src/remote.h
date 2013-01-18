@@ -37,7 +37,7 @@ public:
 		struct sockaddr_in si;
 		si.sin_family = AF_INET;
 		si.sin_port = htons(port);
-		si.sin_addr.s_addr = INADDR_ANY;
+		si.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
 		rc = unix_bind(sk, reinterpret_cast<struct sockaddr *>(&si),
 				sizeof(si));
 		rc = listen(sk, 16);

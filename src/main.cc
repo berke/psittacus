@@ -128,7 +128,7 @@ void do_parrot(const options &o, const char *progname)
 
 	if (o.remote_control_path.size()) {
 		rm.reset(new remote(o.remote_control_path.c_str()));
-	} else if (o.port > 0) {
+	} else if (o.remote_control_port > 0) {
 		rm.reset(new remote(o.remote_control_port));
 	} else throw runtime_error("Remote control socket path or TCP port "
 			"must be specified");
