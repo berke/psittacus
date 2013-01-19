@@ -40,7 +40,7 @@ class parrot : public MessageHandler, public RosterListener,
 			const string &w = a[0];
 			if (!w.compare("help")) return cmd_help();
 			if (!w.compare("history")) return cmd_history();
-			if (!w.compare("who")) return cmd_who();
+			//if (!w.compare("who")) return cmd_who();
 			if (!w.compare("say")) return cmd_say(a);
 			return fmt::spf("Unknown command '%s', try help.",
 					w.c_str());
@@ -50,8 +50,11 @@ class parrot : public MessageHandler, public RosterListener,
 			if (args.size() != 2) return "Wrong number of args";
 
 			stringstream u;
-			u << "Message from " << jid.bare() << ":\n'"
-				<< args[1] << "'";
+			if (false)
+				u << "Message from " << jid.bare() << ":\n'"
+					<< args[1] << "'";
+			else
+				u << "Message:\n'" << args[1] << "'";
 			p->broadcast(letter("", u.str()));
 
 			return "Message sent.";
