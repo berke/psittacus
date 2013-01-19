@@ -245,7 +245,8 @@ public:
 			case StreamErrorPolicyViolation:
 				msg = "StreamErrorPolicyViolation"; break;
 			case StreamErrorRemoteConnectionFailed:
-				msg = "StreamErrorRemoteConnectionFailed"; break;
+				msg = "StreamErrorRemoteConnectionFailed";
+				break;
 			case StreamErrorResourceConstraint:
 				msg = "StreamErrorResourceConstraint"; break;
 			case StreamErrorRestrictedXml:
