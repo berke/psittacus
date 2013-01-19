@@ -92,7 +92,7 @@ public:
 	struct disconnected { };
 
 	parrot(const string &Jid, const string &Pwd, const string &Server) :
-		ping_interval(20),
+		ping_interval(900),
 		t_start(time_utils::now()),
 		t_last_ping(-1),
 		history_max_size(25)
