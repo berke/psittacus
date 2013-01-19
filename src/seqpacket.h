@@ -95,9 +95,10 @@ public:
 		messages.push(message);
 	}
 
-	bool pending(string &message) {
+	bool pending(letter &let) {
 		if (messages.size() > 0) {
-			message = messages.front();
+			let.to = "";
+			let.body = messages.front();
 			messages.pop();
 			return true;
 		} else return false;

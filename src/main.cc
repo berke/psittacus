@@ -148,11 +148,9 @@ void do_parrot(const options &o, const char *progname)
 				if (p.pending(let))
 					rm->receive(let);
 
-#if 0
 				sp->process();
-				if (sp->pending(message))
-					p.broadcast(message);
-#endif
+				if (sp->pending(let))
+					p.broadcast(let);
 
 				rm->process();
 				if (rm->pending(let))
