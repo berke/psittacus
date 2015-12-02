@@ -18,7 +18,7 @@ public:
 	}
 
 	void send(const string &msg) {
-		ms->send(msg);
+		ms->send(msg, gloox::EmptyString);
 	}
 
 	string answer(const string &u) {
